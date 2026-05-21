@@ -1,7 +1,13 @@
 {
   "permissions": {
     "deny": [
-      "Read(.devcontainer/**)"
+      "Read(.devcontainer/**)",
+      "Bash(git commit --no-verify:*)",
+      "Bash(git push:*)",
+      "Bash(lefthook uninstall)"
     ]
-  }
+  },
+  "includeCoAuthoredBy": false,
+  "awaySummaryEnabled": false,
+  "autoCompactEnabled": true
 }
