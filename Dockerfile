@@ -2,10 +2,9 @@
 # Based on Microsoft devcontainer image for better devcontainer integration
 FROM ghcr.io/astral-sh/uv:0.10@sha256:10902f58a1606787602f303954cea099626a4adb02acbac4c69920fe9d278f82 AS uv
 
+FROM golang:1.26.3-trixie@sha256:f34e7161a14638b812ce491bd89c81718f309cac6ec0ffe016e5fbcb4bdc8c06 AS lgtmcp-builder
 # renovate: datasource=git-refs depName=https://github.com/shields/lgtmcp
 ARG LGTMCP_VERSION=2f45a3a35b97111242f22649afad2825c6b3ce8f
-FROM golang:1.26.3-trixie@sha256:f34e7161a14638b812ce491bd89c81718f309cac6ec0ffe016e5fbcb4bdc8c06 AS lgtmcp-builder
-ARG LGTMCP_VERSION
 ENV CGO_ENABLED=0 GOBIN=/out
 RUN --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/go/pkg/mod \
