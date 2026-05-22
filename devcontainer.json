@@ -70,7 +70,8 @@
   },
   "remoteEnv": {
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN:}",
-    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY:}"
+    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY:}",
+    "TERM": "${localEnv:TERM:}"
   },
   "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; mkdir -p \"$HOME/.claude/plugins\"; test -f \"$HOME/.claude/settings.json\" || echo '{}' > \"$HOME/.claude/settings.json\"; test -f \"$HOME/.claude/plugins/known_marketplaces.json\" || echo '{}' > \"$HOME/.claude/plugins/known_marketplaces.json\"; mkdir -p \"$HOME/.config/lgtmcp\"; test -f \"$HOME/.config/lgtmcp/config.yaml\" || touch \"$HOME/.config/lgtmcp/config.yaml\"",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
