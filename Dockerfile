@@ -114,9 +114,14 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_D
 # Install Oh My Zsh
 # renovate: datasource=github-releases depName=deluan/zsh-in-docker
 ARG ZSH_IN_DOCKER_VERSION=1.2.1
+# zsh-in-docker writes `[ -z "$TERM" ] && export TERM=xterm` via an unquoted
+# heredoc, so $TERM expands to "" at build time and the line becomes
+# `[ -z "" ] && export TERM=xterm` — always true, clobbering TERM on every
+# interactive shell. Strip it.
 RUN sh -c "$(curl -fsSL https://github.com/deluan/zsh-in-docker/releases/download/v${ZSH_IN_DOCKER_VERSION}/zsh-in-docker.sh)" -- \
   -p git \
-  -x
+  -x && \
+  sed -i '/^\[ -z "" \] && export TERM=xterm$/d' /home/vscode/.zshrc
 
 # Copy zsh configuration
 COPY --chown=vscode:vscode .zshrc /home/vscode/.zshrc.custom
