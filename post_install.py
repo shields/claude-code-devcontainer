@@ -3,7 +3,8 @@
 
 Runs on container creation to set up:
 - Onboarding bypass (when CLAUDE_CODE_OAUTH_TOKEN is set)
-- Claude settings (bypassPermissions mode)
+- Claude settings (seeded from host user-level settings, bypassPermissions mode)
+- Claude plugins (installed from the host's enabledPlugins)
 - Tmux configuration (200k history, mouse support)
 - Directory ownership fixes for mounted volumes
 """
@@ -94,28 +95,106 @@ def setup_onboarding_bypass():
     )
 
 
-def setup_claude_settings():
-    """Configure Claude Code with bypassPermissions enabled."""
+def setup_claude_settings() -> dict:
+    """Seed Claude settings from host user-level file; enable bypassPermissions.
+
+    The container's settings.json is regenerated from the host on each rebuild
+    by design: host ~/.claude/settings.json is the source of truth, and the
+    named volume holds an ephemeral mirror. Container-only changes don't
+    survive a rebuild — propagate them to the host instead.
+    """
     claude_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
     claude_dir.mkdir(parents=True, exist_ok=True)
-
     settings_file = claude_dir / "settings.json"
+    host_settings = Path.home() / ".claude-host-settings.json"
 
-    # Load existing settings or start fresh
-    settings = {}
-    if settings_file.exists():
-        with contextlib.suppress(json.JSONDecodeError):
-            settings = json.loads(settings_file.read_text())
+    settings: dict = {}
+    with contextlib.suppress(OSError, ValueError):
+        parsed = json.loads(host_settings.read_text(encoding="utf-8"))
+        if isinstance(parsed, dict):
+            settings = parsed
 
-    # Set bypassPermissions mode
-    if "permissions" not in settings:
-        settings["permissions"] = {}
-    settings["permissions"]["defaultMode"] = "bypassPermissions"
+    # Drop command-type statusLine: would exec a host-side script not present here.
+    statusline = settings.get("statusLine")
+    if isinstance(statusline, dict) and statusline.get("type") == "command":
+        settings.pop("statusLine", None)
+
+    # Container is its own sandbox layer and runs with bypassPermissions;
+    # host-side sandbox config doesn't apply here.
+    settings.pop("sandbox", None)
+
+    permissions = settings.get("permissions")
+    if not isinstance(permissions, dict):
+        permissions = {}
+    permissions["defaultMode"] = "bypassPermissions"
+    settings["permissions"] = permissions
 
     settings_file.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     print(
         f"[post_install] Claude settings configured: {settings_file}", file=sys.stderr
     )
+    return settings
+
+
+def _run_claude(args: list[str], label: str) -> bool:
+    """Run a `claude` subcommand; log stderr on failure. Returns True on success."""
+    try:
+        result = subprocess.run(
+            ["claude", *args],
+            check=False,
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        print(f"[post_install] {label} skipped: claude CLI not found", file=sys.stderr)
+        return False
+    if result.returncode != 0:
+        print(
+            f"[post_install] {label} failed: {result.stderr.strip()}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def setup_claude_plugins(settings: dict) -> None:
+    """Install plugins enabled in settings, resolving marketplaces via host state."""
+    enabled_plugins = settings.get("enabledPlugins")
+    if not isinstance(enabled_plugins, dict):
+        return
+    enabled = sorted(k for k, v in enabled_plugins.items() if v)
+    if not enabled:
+        return
+
+    host_marketplaces = Path.home() / ".claude-host-known-marketplaces.json"
+    marketplaces: dict = {}
+    with contextlib.suppress(OSError, ValueError):
+        parsed = json.loads(host_marketplaces.read_text(encoding="utf-8"))
+        if isinstance(parsed, dict):
+            marketplaces = parsed
+
+    # Resolve any host-registered marketplace first; install is attempted
+    # unconditionally so that plugins from marketplaces registered only inside
+    # the container (e.g. via the Dockerfile) still go through.
+    added: set[str] = set()
+    for plugin_ref in enabled:
+        if "@" in plugin_ref:
+            _, marketplace = plugin_ref.rsplit("@", 1)
+            if marketplace not in added:
+                entry = marketplaces.get(marketplace)
+                source = entry.get("source") if isinstance(entry, dict) else None
+                repo = source.get("repo") if isinstance(source, dict) else None
+                if isinstance(source, dict) and source.get("source") == "github" and isinstance(repo, str) and repo:
+                    _run_claude(
+                        ["plugin", "marketplace", "add", repo],
+                        f"marketplace add {repo}",
+                    )
+                    added.add(marketplace)
+        if _run_claude(
+            ["plugin", "install", plugin_ref], f"plugin install {plugin_ref}"
+        ):
+            print(f"[post_install] Installed plugin: {plugin_ref}", file=sys.stderr)
 
 
 def setup_tmux_config():
@@ -297,7 +376,7 @@ def main():
     print("[post_install] Starting post-install configuration...", file=sys.stderr)
 
     setup_onboarding_bypass()
-    setup_claude_settings()
+    setup_claude_plugins(setup_claude_settings())
     setup_tmux_config()
     fix_directory_ownership()
     setup_global_gitignore()
