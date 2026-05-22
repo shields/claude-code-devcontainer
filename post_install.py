@@ -197,6 +197,15 @@ def setup_claude_plugins(settings: dict) -> None:
             print(f"[post_install] Installed plugin: {plugin_ref}", file=sys.stderr)
 
 
+def setup_lgtmcp_mcp():
+    """Register lgtmcp as a user-level MCP server."""
+    if _run_claude(
+        ["mcp", "add", "lgtmcp", "--", "/usr/local/bin/lgtmcp"],
+        "mcp add lgtmcp",
+    ):
+        print("[post_install] Registered MCP server: lgtmcp", file=sys.stderr)
+
+
 def setup_tmux_config():
     """Configure tmux with 200k history, mouse support, and vi keys."""
     tmux_conf = Path.home() / ".tmux.conf"
@@ -377,6 +386,7 @@ def main():
 
     setup_onboarding_bypass()
     setup_claude_plugins(setup_claude_settings())
+    setup_lgtmcp_mcp()
     setup_tmux_config()
     fix_directory_ownership()
     setup_global_gitignore()

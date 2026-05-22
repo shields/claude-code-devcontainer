@@ -1,6 +1,18 @@
 # Claude Code Devcontainer
 # Based on Microsoft devcontainer image for better devcontainer integration
 FROM ghcr.io/astral-sh/uv:0.10@sha256:10902f58a1606787602f303954cea099626a4adb02acbac4c69920fe9d278f82 AS uv
+
+# renovate: datasource=git-refs depName=https://github.com/shields/lgtmcp
+ARG LGTMCP_VERSION=2f45a3a35b97111242f22649afad2825c6b3ce8f
+FROM golang:1.26.3-trixie@sha256:f34e7161a14638b812ce491bd89c81718f309cac6ec0ffe016e5fbcb4bdc8c06 AS lgtmcp-builder
+ARG LGTMCP_VERSION
+ENV CGO_ENABLED=0 GOBIN=/out
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/go/pkg/mod \
+  go install \
+    -ldflags "-s -w -X 'msrl.dev/lgtmcp/internal/appinfo.Version=${LGTMCP_VERSION}'" \
+    "msrl.dev/lgtmcp@${LGTMCP_VERSION}"
+
 FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04@sha256:4bcb1b466771b1ba1ea110e2a27daea2f6093f9527fb75ee59703ec89b5561cb
 
 ARG TZ
@@ -43,6 +55,9 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # Install uv (Python package manager) via multi-stage copy
 COPY --from=uv /uv /usr/local/bin/uv
 
+# Install lgtmcp (Gemini code-review MCP server) from the builder stage
+COPY --from=lgtmcp-builder /out/lgtmcp /usr/local/bin/lgtmcp
+
 # Install fzf from GitHub releases (newer than apt, includes built-in shell integration)
 # renovate: datasource=github-releases depName=junegunn/fzf
 ARG FZF_VERSION=0.70.0
@@ -55,10 +70,12 @@ RUN ARCH=$(dpkg --print-architecture) && \
   curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-${FZF_ARCH}.tar.gz" | tar -xz -C /usr/local/bin
 
 # Create directories and set ownership (combined for fewer layers)
-RUN mkdir -p /commandhistory /workspace /home/vscode/.claude /opt && \
+# .config/lgtmcp is precreated so the bind-mount of config.yaml doesn't make
+# Docker auto-create the parent dirs as root, locking vscode out of ~/.config.
+RUN mkdir -p /commandhistory /workspace /home/vscode/.claude /home/vscode/.config/lgtmcp /opt && \
   touch /commandhistory/.bash_history && \
   touch /commandhistory/.zsh_history && \
-  chown -R vscode:vscode /commandhistory /workspace /home/vscode/.claude /opt
+  chown -R vscode:vscode /commandhistory /workspace /home/vscode/.claude /home/vscode/.config /opt
 
 # Set environment variables
 ENV DEVCONTAINER=true

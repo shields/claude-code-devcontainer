@@ -48,6 +48,7 @@
     "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
     "source=${localEnv:HOME}/.claude/settings.json,target=/home/vscode/.claude-host-settings.json,type=bind,readonly",
     "source=${localEnv:HOME}/.claude/plugins/known_marketplaces.json,target=/home/vscode/.claude-host-known-marketplaces.json,type=bind,readonly",
+    "source=${localEnv:HOME}/.config/lgtmcp/config.yaml,target=/home/vscode/.config/lgtmcp/config.yaml,type=bind,readonly",
     "source=${localWorkspaceFolder}/.devcontainer,target=/workspace/.devcontainer,type=bind,readonly",
     "source=${localWorkspaceFolder}/.git/config,target=/workspace/.git/config,type=bind,readonly",
     "source=${localWorkspaceFolder}/.git/hooks,target=/workspace/.git/hooks,type=bind,readonly"
@@ -71,7 +72,7 @@
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN:}",
     "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY:}"
   },
-  "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; mkdir -p \"$HOME/.claude/plugins\"; test -f \"$HOME/.claude/settings.json\" || echo '{}' > \"$HOME/.claude/settings.json\"; test -f \"$HOME/.claude/plugins/known_marketplaces.json\" || echo '{}' > \"$HOME/.claude/plugins/known_marketplaces.json\"",
+  "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"; mkdir -p \"$HOME/.claude/plugins\"; test -f \"$HOME/.claude/settings.json\" || echo '{}' > \"$HOME/.claude/settings.json\"; test -f \"$HOME/.claude/plugins/known_marketplaces.json\" || echo '{}' > \"$HOME/.claude/plugins/known_marketplaces.json\"; mkdir -p \"$HOME/.config/lgtmcp\"; test -f \"$HOME/.config/lgtmcp/config.yaml\" || touch \"$HOME/.config/lgtmcp/config.yaml\"",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "uv run --no-project /opt/post_install.py"
